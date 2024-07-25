@@ -1,0 +1,7 @@
+person1_1 6 16 17 0
+person1_2 8 16 17 4
+person1_3 6 16 17 0
+person2_1 6 16 17 0
+person2_2 6 16 0 4
+person3_1
+person3_2 4 6 12 17
