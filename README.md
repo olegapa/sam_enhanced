@@ -11,7 +11,7 @@ docker build -t sam-image .
 
 You need to run the container and mount all of the necessary directories. Example how to launch inference:
 ```
-sudo docker run --gpus all --shm-size=16g -v ./video/:/projects_data -v ./video_1:/input -v ./output:/output -it --rm sam-image --input_data /input/deeplab.json --demo_mode --clipes_mode
+sudo docker run --gpus all --shm-size=16g -v family:/family -v ./projects_data/:/projects_data -v ./video_1:/input  -v ./sam_output:/output -v /var/run/docker.sock:/var/run/docker.sock -v ./sam_markups:/markups -it --rm sam-image --host_web 'http://127.0.0.1:5555'
 ```
 
 
@@ -30,6 +30,7 @@ Format output and input file:
 {
 	files: [
 		{
+			file_id: <files.id>,		
 			file_name: <files.name>,
 			file_chains: [
 				{
@@ -39,6 +40,7 @@ Format output and input file:
 						{
 							markup_parent_id: <markups.parent_id **>,
 							markup_frame: <пересчет в markups.mark_time ***>,
+							markup_time: <markups.mark_time>,
 							markup_path: <markups.mark_path>,
 							markup_vector: <markups.vector>
 						},
@@ -61,7 +63,7 @@ Format output and input file:
   width: <rect_width>,
   height: <rect_height>,
   mask: <base_64_encoded_mask_image>,
-  "labels": <detcted_clothes_classes>
+  polygons: <classes_mask_polygons>
 }
 ```
 List of clothes classes presented can be obtained here https://github.com/olegapa/deeplab/tree/master.
@@ -70,5 +72,5 @@ List of clothes classes presented can be obtained here https://github.com/olegap
 In order to use this solution 2 pretrained models should be loaded:
 1. https://drive.google.com/file/d/1-4I8ig_akX0E7m5pYf1ckCGp6iNhgN4G/view?usp=sharing Place it in <code_root>/CLIP-ES/pretrained_models/clip/ folder
 2. https://drive.google.com/file/d/1QkYmBN85tXUK4FDXrPjm6wPpm-hHMI7T/view?usp=sharing Place it in <code_root>/segment-anything/sam_checkpoint/ folder
-Pretrained weights can be downloaded: https://drive.google.com/file/d/18N3ZRyCcno1cLnV4GGHNOGfRMLYolTeI/view?usp=sharing
+
     

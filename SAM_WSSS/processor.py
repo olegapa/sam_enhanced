@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from util.vis import *
 
 class Processor:
-    def __init__(self, params, num_cls=21):
+    def __init__(self, params, num_cls=18):
         self.method = params.method
         method_dict = {
             'max_iou': MaxIoU,

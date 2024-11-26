@@ -13,6 +13,9 @@ import json
 import os
 from typing import Any, Dict, List
 
+from progress_counter import ProgressCounter
+from container_status import ContainerStatus as CS
+
 parser = argparse.ArgumentParser(
     description=(
         "Runs automatic mask generation on an input image or directory of images, "
@@ -148,6 +151,35 @@ amg_settings.add_argument(
     ),
 )
 
+amg_settings.add_argument(
+    "--host_web",
+    type=str,
+    default=None,
+    help=(
+        "Disconnected mask regions or holes with area smaller than this value "
+        "in pixels are removed by postprocessing."
+    ),
+)
+
+amg_settings.add_argument(
+    "--total",
+    type=int,
+    default=None,
+    help=(
+        "Disconnected mask regions or holes with area smaller than this value "
+        "in pixels are removed by postprocessing."
+    ),
+)
+
+amg_settings.add_argument(
+    "--processed",
+    type=int,
+    default=None,
+    help=(
+        "Disconnected mask regions or holes with area smaller than this value "
+        "in pixels are removed by postprocessing."
+    ),
+)
 
 def write_masks_to_folder(masks: List[Dict[str, Any]], path: str) -> None:
     header = "id,area,bbox_x0,bbox_y0,bbox_w,bbox_h,point_input_x,point_input_y,predicted_iou,stability_score,crop_box_x0,crop_box_y0,crop_box_w,crop_box_h"  # noqa
@@ -194,6 +226,8 @@ def get_amg_kwargs(args):
 
 def main(args: argparse.Namespace) -> None:
     print("Loading model...")
+    cs = CS(args.host_web)
+    counter = ProgressCounter(total=int(args.total), processed=int(args.processed), cs=cs)
     sam = sam_model_registry[args.model_type](checkpoint=args.checkpoint)
     _ = sam.to(device=args.device)
     output_mode = "coco_rle" if args.convert_to_rle else "binary_mask"
@@ -209,8 +243,9 @@ def main(args: argparse.Namespace) -> None:
         targets = [os.path.join(args.input, f) for f in targets]
 
     os.makedirs(args.output, exist_ok=True)
-
+    i = 0
     for t in targets:
+
         print(f"Processing '{t}'...")
         image = cv2.imread(t)
         if image is None:
@@ -230,6 +265,11 @@ def main(args: argparse.Namespace) -> None:
             save_file = save_base + ".json"
             with open(save_file, "w") as f:
                 json.dump(masks, f)
+        i += 1
+        if i % 1000 == 0:
+            counter.report_status(stage=2, report_amount=1000)
+
+    counter.report_status(stage=2, report_amount=len(targets) % 1000)
     print("Done!")
 
 
