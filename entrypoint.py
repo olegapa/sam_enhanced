@@ -260,7 +260,7 @@ def verify_file_name(postfix_name, common_name):
     tail1 = '.'.join(postfix_tail.split('.')[0:-1])
     _, tail2 = os.path.split(common_name)
     logger.info(f"comparing {tail1} and {tail2}")
-    return tail1 == tail2
+    return tail1 == f'IN_{tail2}'
 
 
 files_in_directory = [
@@ -293,6 +293,7 @@ for file in files_in_directory:
     for item in json_data['files']:
         prepared_data = dict()
         video_path = item.get('file_name', "no_video")
+        _, video_path = os.path.split(video_path)
         if not os.path.isfile(f'/input/{video_path}'):
             logger.warning(f"File name {video_path} doesn't exist - it is skipped")
             continue
