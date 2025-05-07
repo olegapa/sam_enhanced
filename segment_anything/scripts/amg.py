@@ -13,9 +13,6 @@ import json
 import os
 from typing import Any, Dict, List
 
-from progress_counter import ProgressCounter
-from container_status import ContainerStatus as CS
-
 parser = argparse.ArgumentParser(
     description=(
         "Runs automatic mask generation on an input image or directory of images, "
@@ -208,41 +205,52 @@ def write_masks_to_folder(masks: List[Dict[str, Any]], path: str) -> None:
 
 def get_amg_kwargs(args):
     amg_kwargs = {
-        "points_per_side": args.points_per_side,
-        "points_per_batch": args.points_per_batch,
-        "pred_iou_thresh": args.pred_iou_thresh,
-        "stability_score_thresh": args.stability_score_thresh,
-        "stability_score_offset": args.stability_score_offset,
-        "box_nms_thresh": args.box_nms_thresh,
-        "crop_n_layers": args.crop_n_layers,
-        "crop_nms_thresh": args.crop_nms_thresh,
-        "crop_overlap_ratio": args.crop_overlap_ratio,
-        "crop_n_points_downscale_factor": args.crop_n_points_downscale_factor,
-        "min_mask_region_area": args.min_mask_region_area,
+        # "points_per_side": args.points_per_side,
+        # "points_per_batch": args.points_per_batch,
+        # "pred_iou_thresh": args.pred_iou_thresh,
+        # "stability_score_thresh": args.stability_score_thresh,
+        # "stability_score_offset": args.stability_score_offset,
+        # "box_nms_thresh": args.box_nms_thresh,
+        # "crop_n_layers": args.crop_n_layers,
+        # "crop_nms_thresh": args.crop_nms_thresh,
+        # "crop_overlap_ratio": args.crop_overlap_ratio,
+        # "crop_n_points_downscale_factor": args.crop_n_points_downscale_factor,
+        # "min_mask_region_area": args.min_mask_region_area,
+
+        "points_per_side": None,
+        "points_per_batch": None,
+        "pred_iou_thresh": None,
+        "stability_score_thresh": None,
+        "stability_score_offset": None,
+        "box_nms_thresh": None,
+        "crop_n_layers": None,
+        "crop_nms_thresh": None,
+        "crop_overlap_ratio": None,
+        "crop_n_points_downscale_factor": None,
+        "min_mask_region_area": None,
     }
     amg_kwargs = {k: v for k, v in amg_kwargs.items() if v is not None}
     return amg_kwargs
 
 
-def main(args: argparse.Namespace) -> None:
+def main(args: argparse.Namespace, model_type=None, checkpoint=None, device="cuda",
+         input=None, output=None, counter=None, convert_to_rle=None) -> None:
     print("Loading model...")
-    cs = CS(args.host_web)
-    counter = ProgressCounter(total=int(args.total), processed=int(args.processed), cs=cs)
-    sam = sam_model_registry[args.model_type](checkpoint=args.checkpoint)
-    _ = sam.to(device=args.device)
-    output_mode = "coco_rle" if args.convert_to_rle else "binary_mask"
+    sam = sam_model_registry[model_type](checkpoint)
+    _ = sam.to(device=device)
+    output_mode = "coco_rle" if convert_to_rle else "binary_mask"
     amg_kwargs = get_amg_kwargs(args)
     generator = SamAutomaticMaskGenerator(sam, output_mode=output_mode, **amg_kwargs)
 
-    if not os.path.isdir(args.input):
-        targets = [args.input]
+    if not os.path.isdir(input):
+        targets = [input]
     else:
         targets = [
-            f for f in os.listdir(args.input) if not os.path.isdir(os.path.join(args.input, f))
+            f for f in os.listdir(input) if not os.path.isdir(os.path.join(input, f))
         ]
-        targets = [os.path.join(args.input, f) for f in targets]
+        targets = [os.path.join(input, f) for f in targets]
 
-    os.makedirs(args.output, exist_ok=True)
+    os.makedirs(output, exist_ok=True)
     i = 0
     for t in targets:
 
@@ -257,7 +265,7 @@ def main(args: argparse.Namespace) -> None:
 
         base = os.path.basename(t)
         base = os.path.splitext(base)[0]
-        save_base = os.path.join(args.output, base)
+        save_base = os.path.join(output, base)
         if output_mode == "binary_mask":
             os.makedirs(save_base, exist_ok=False)
             write_masks_to_folder(masks, save_base)
@@ -267,9 +275,9 @@ def main(args: argparse.Namespace) -> None:
                 json.dump(masks, f)
         i += 1
         if i % 1000 == 0:
-            counter.report_status(stage=2, report_amount=1000)
+            counter.report_status(stage="Обработка SAM", report_amount=1000)
 
-    counter.report_status(stage=2, report_amount=len(targets) % 1000)
+    counter.report_status(stage="Обработка SAM", report_amount=len(targets) % 1000)
     print("Done!")
 
 

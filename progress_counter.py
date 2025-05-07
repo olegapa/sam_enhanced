@@ -1,12 +1,12 @@
 from container_status import ContainerStatus
 import logging
 
-logging.basicConfig(level=logging.INFO, filename='/output/container_status.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO, filename='/output/container_status.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+# logger = logging.getLogger(__name__)
 
 
 class ProgressCounter:
-    def __init__(self, total, processed, cs: ContainerStatus):
+    def __init__(self, total, processed, cs: ContainerStatus, logger: logging):
         self.total = total
         self.cs = cs
         self.processed = processed
@@ -14,7 +14,7 @@ class ProgressCounter:
 
     def report_status(self, report_amount, stage, out_file=None, test_error=None, train_error=None):
         self.processed += report_amount
-        data = {"stage": f"{stage} из 3", "progress": round(100*(self.processed / self.total), 2)}
+        data = {"stage": stage, "progress": round(100*(self.processed / self.total), 2)}
         if out_file or test_error or train_error:
             data['statistics'] = dict()
             if out_file:

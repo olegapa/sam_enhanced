@@ -4,12 +4,12 @@ import requests
 import logging
 from urllib.parse import urljoin
 
-logging.basicConfig(level=logging.INFO, filename='/output/container_status.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO, filename='/output/container_status.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+# logger = logging.getLogger(__name__)
 
 class ContainerStatus():
 
-    def __init__(self, host_web):
+    def __init__(self, host_web, logger: logging):
         self.host_web = host_web
         self.logger = logger
         self.short_id = None

@@ -63,7 +63,7 @@ SAM_TEMP_PATH = f"{TEMP_ROOT}/sam"
 COLORED_MASKS = f"{TEMP_ROOT}/colored"
 INPUT_DATA = "/markups"
 INPUT_DATA_ARG = args.input_data
-SAM_CHECKPOINT = "segment-anything/sam_checkpoint/sam_vit_h_4b8939.pth"
+SAM_CHECKPOINT = "segment_anything/sam_checkpoint/sam_vit_h_4b8939.pth"
 HOST_WEB = args.host_web
 cs = CS(HOST_WEB)
 cs.post_start()
@@ -165,23 +165,6 @@ def get_img_str(file_name, mask_dir):
         # Преобразуем закодированные данные в строку
         base64_image_str = base64_encoded_data.decode('utf-8')
     return base64_image_str
-
-
-def labels_to_dict(labels_file):
-    res = dict()
-    with open(labels_file, 'r', encoding='utf-8') as labels:
-        for line in labels:
-            # Удалить пробельные символы в начале и в конце строки и разбить строку по пробелам
-            parts = line.strip().split()
-
-            # Первая часть - это название файла, а оставшиеся части - метки классов
-            image_name = parts[0]
-            class_labels = " ".join(parts[1:])
-
-            # Записать данные в словарь
-            res[image_name] = class_labels
-    return res
-
 
 
 def apply_color_mapping(mask, color_mapping):
@@ -343,7 +326,7 @@ if CLIPES_MODE:
 start_time = time.time()
 processed = 0
 for json_data, image_directory, mask_directory, sam_dir, f, frame_amount in directories:
-    command = (f'python segment-anything/scripts/amg.py --checkpoint {SAM_CHECKPOINT}'
+    command = (f'python segment_anything/scripts/amg.py --checkpoint {SAM_CHECKPOINT}'
                f' --model-type default --input {image_directory} --output {sam_dir} '
                f'--host_web {HOST_WEB} --total {total_images} --processed {processed}')
     os.system(command)
