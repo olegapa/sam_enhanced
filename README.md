@@ -1,6 +1,6 @@
 # SAM Enhanced masks
 
-### **SORT Tracker**
+### **SAM Enhanced Pseudo Labels**
 
 First of all you need to build an image:
 ```
@@ -9,23 +9,32 @@ docker build -t sam-image .
 
 #### 1. Evaluate / Training mode
 
-You need to run the container and mount all of the necessary directories. Example how to launch inference:
+You need to run the container and mount all the necessary directories. Example how to launch inference:
 ```
-sudo docker run --gpus all --shm-size=16g -v family:/family -v ./projects_data/:/projects_data -v ./video_1:/input  -v ./sam_output:/output -v /var/run/docker.sock:/var/run/docker.sock -v ./sam_markups:/markups -it --rm sam-image --host_web 'http://127.0.0.1:5555'
+sudo docker run --gpus all --shm-size=16g -v family:/family -v ./projects_data/:/projects_data -v ./new_videos:/input_videos  -v ./new_sam_output/sam1:/output -v /var/run/docker.sock:/var/run/docker.sock -v ./new_sam_input/test:/input_data -it --rm sam-image --host_web 'http://127.0.0.1:5555' --input_data '{"frame_frequency": "100"}'
 ```
+Additional parameters are passed to SAM container via `--input_data` dictionary-based parameter
+#### Additional flags:
 
+`--demo_mode` - Execute in demo mode. All temporal files like images will be saved in output directory. Colored masks are saved as well.
 
+`--min_height` and `--min_width` - Restriction on bounder box minimum size. Only bounder boxes of bigger size are processed
 
-Apart from default keys: input_data (json file in input directory in format of tracking output file for inference
-and inference output file for training mode) and --work_format_training (flag that marks training mode)
-there also --demo_mode flag for inference that allows to save output bounder boxes and masks images in output
-directory. In current version of code every 10th frame is processed (if bounder boxes are correct for such frames).
+#### Contents of `input_data` dictionary parameter:
+`frame_frequency` - Filters frames to be processed by frame numbers. E.g. if `frame_frequency = 10` then only frames with numbers 1, 11, 21... are processed
 
-Also 2 modes are supported in the container: 1) default mode takes as an input output file in format of output from https://github.com/olegapa/deeplab/tree/master
-and enhances masks in ```markup_vector['mask']``` . 2) clip-es mode can be activated by additional flag --clipes_mode, in this mode input is like in https://github.com/olegapa/deeplab/tree/master , but optional instead of required ```markup_vector['mask']``` parameters.
-Instaed it generates masks using ```markup_vector['mask']``` parameter - which stands for a list of clothes labels presented in bounder box
+`visualize` - If true then videos with processed masks are generated. *In current version of implementation this option is untested*
 
-Format output and input file:
+`approx_eps` - Determines polygon approximation scale. The more value is the fewer polygons are in output. Default value 0.02
+
+`score_thresholds` - Determines confidence score thresholds for each of the segmentation classes, thus enabling to process only objects with higher confidence score then the threshold. 
+
+*Example*:
+`sudo docker run --gpus all --shm-size=16g -v ./projects_data/:/projects_data -v /family/projects_data/4e0e4e28-0f0e-11f0-b6ef-0242ac140002/4e129866-0f0e-11f0-b6ef-0242ac140002/videos:/input_videos -v /family:/family -v ./new_sam_output/big_data/2:/output -v /var/run/docker.sock:/var/run/docker.sock -v ./new_sam_input/big_data/2:/input_data -it --rm sam-image --host_web 'http://127.0.0.1:5555' --input_data '{"score_thresholds": "{1: 0.43, 2: 0.64, 3: 0.7, 4: 0.8, 5: 0.5, 6: 0.42, 7: 0.61, 8: 0.48}"}' --demo_mode`
+
+#### Format for input/output file:
+SAM container takes as an input output file in format of output from https://github.com/olegapa/deeplab/tree/master 
+output and input file:
 ```json
 {
 	files: [
@@ -62,8 +71,8 @@ Format output and input file:
   y: <rect_y>,
   width: <rect_width>,
   height: <rect_height>,
-  mask: <base_64_encoded_mask_image>,
-  polygons: <classes_mask_polygons>
+  polygons: <mask_polygons>,
+  class: <mask_class>
 }
 ```
 List of clothes classes presented can be obtained here https://github.com/olegapa/deeplab/tree/master.
