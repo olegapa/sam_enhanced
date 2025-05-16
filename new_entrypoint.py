@@ -104,7 +104,12 @@ else:
     min_height = 5
 
 if INPUT_DATA_ARG:
-    json_input_arg = json.loads(INPUT_DATA_ARG.replace("'", "\""))
+    try:
+        json_input_arg = json.loads(INPUT_DATA_ARG.replace("'", "\""))
+    except Exception:
+        cs.post_error({"msg": "Wrong input_data argument format", "details": f"input_data is following {INPUT_DATA_ARG}"})
+        logger.info(f"Wrong input_data argument format {INPUT_DATA_ARG}")
+        exit(-1)
     PROCESS_FREQ = int(json_input_arg.get("frame_frequency", 1))
     SAM2_MODE = eval(json_input_arg.get("sam2", "False"))
     MAKE_VISUALIZATION = eval(json_input_arg.get("visualize", "False"))
@@ -134,6 +139,8 @@ def get_image_name(video, frame, person):
 
 
 def check_class_score_criteria(class_id: int, score: float):
+    if score is None:
+        return True
     return score > SCORE_THRESHOLD[class_id]
 
 
@@ -409,7 +416,12 @@ count = 0
 for file in files_in_directory:
     cs.post_progress({"stage": STAGE1, "progress": round(100 * (count / len(files_in_directory)), 2)})
     with open(file, 'r', encoding='utf-8') as input_json:
-        json_data = json.load(input_json)
+        try:
+            json_data = json.load(input_json)
+        except Exception:
+            cs.post_error({"msg": "Error when loading json file", "details": f"File: {file}"})
+            logger.info(f"Error when loading json file {file}")
+            continue
 
     video_path = None
     _, dir_postfix = os.path.split(file)
@@ -421,19 +433,44 @@ for file in files_in_directory:
         prepared_data = dict()
         video_path = item.get('file_name', "no_video")
         _, video_path = os.path.split(video_path)
-        if not os.path.isfile(f'/{INPUT}/{video_path}'):
-            logger.warning(f"File name {video_path} doesn't exist - it is skipped")
-            continue
+        if not (os.path.isfile(f'{INPUT}/{video_path}') or os.path.islink(f'{INPUT}/{video_path}')):
+            cs.post_error({"msg": "Video file hasn't been found", "details": f"File name: {INPUT}/{video_path}"})
+            logger.warning(f"File name {INPUT}/{video_path} doesn't exist - it is skipped")
+            break
         if not verify_file_name(file, video_path):
-            logger.warning(f"File name {file} doesn't correspond to file_name key in json {video_path} - it is skipped")
-            continue
+            cs.post_error({"msg": "Invalid file name",
+                           "details": f"File name {file} doesn't correspond to file_name key in json {INPUT}/{video_path}"})
+            logger.warning(f"File name {file} doesn't correspond to file_name key in json {video_path}")
+            break
         # if not check_video_extension(video_path):
         #     continue
-        file_chains = item['file_chains']
+
+        # To convert time to frame_num
+        cap = cv2.VideoCapture(f'{INPUT}/{video_path}')
+        fps = cap.get(cv2.CAP_PROP_FPS)
+
+        file_chains = item.get('file_chains', None)
+        if not file_chains:
+            # cs.post_error({"msg": "file_chains key has not been found",
+            #                "details": f"File name {file}"})
+            continue
         for chain in file_chains:
-            chain_name = chain['chain_name']
+            chain_name = chain.get('chain_name', None)
+            if chain_name is None:
+                cs.post_error({"msg": "Chain name is not specified",
+                               "details": f"File name {file}"})
+                logger.info(f"Chain name is not specified {file}")
+                continue
             for frame in chain['chain_markups']:
-                frame_num = frame['markup_frame']
+                frame_num = frame.get('markup_frame', None)
+                if frame_num is None:
+                    m_time = frame.get('markup_time', None)
+                    if m_time is None:
+                        cs.post_error({"msg": "Nor markup_frame, nor markup_time are set",
+                                       "details": f"File name {file}, chain_name {chain_name}"})
+                        continue
+                    frame['markup_frame'] = round(float(frame['markup_time']) * float(fps))
+                    frame_num = frame['markup_frame']
                 bbox_data = {"x": frame["markup_path"]["x"], "y": frame["markup_path"]["y"], "width": frame["markup_path"]["width"], "height": frame["markup_path"]["height"]}
                 if frame_process_condition(frame_num, bbox_data):
                     if frame_num not in prepared_data.keys():
@@ -443,11 +480,15 @@ for file in files_in_directory:
                         prepared_data[frame_num][chain_name]['polygons'] = dict()
                     prepared_data[frame_num][chain_name]['polygons'][frame['markup_path']['class']] = dict()
                     prepared_data[frame_num][chain_name]['polygons'][frame['markup_path']['class']]['polygons'] = frame["markup_path"]['polygons']
-                    prepared_data[frame_num][chain_name]['polygons'][frame['markup_path']['class']]['score'] = float(frame['markup_confidence'])
+                    markup_confidence = frame.get('markup_confidence', None)
+                    if markup_confidence:
+                        markup_confidence = float(markup_confidence)
+                    prepared_data[frame_num][chain_name]['polygons'][frame['markup_path']['class']]['score'] = markup_confidence
 
         if not prepared_data:
             empty_files.append((json_data, file))
             continue
+        cap.release()
         prepare_image_dir(f'/{INPUT}/{video_path}', prepared_data, im_dir, mask_dir)
     logger.info(f'Data preparation took {time.time() - start_time} seconds')
     logger.info(f'Amount of small images (with height < 100 or width < 50): {processed_frames["small"]} '
@@ -528,7 +569,7 @@ for json_data, image_directory, mask_directory, vp, sam_dir, f, frame_amount in 
         visualization.visualize_masks(f'{INPUT}/{vp}', result, OUTPUT_PATH)
 for params in empty_files:
     save_empty_file(*params)
-
-
+cs.post_progress({"stage": STAGE3, "progress": 100})
+cs.post_end()
 logger.info(f'Result file generation took {time.time() - start_time} seconds')
 logger.info(f'The whole process took {time.time() - run_time} seconds, clip-es mode = {CLIPES_MODE}')
