@@ -212,7 +212,7 @@ processed_frames = {"small": 0, 'ok': 0}
 
 
 def frame_process_condition(num, bbox_data):
-    if ((PROCESS_FREQ < 2 or int(num) % PROCESS_FREQ == 1) and bbox_data['x'] > 0 and bbox_data['y'] > 0
+    if ((PROCESS_FREQ < 2 or int(num) % PROCESS_FREQ == 0) and bbox_data['x'] > 0 and bbox_data['y'] > 0
             and bbox_data['width'] > min_width and bbox_data['height'] > min_height):
         if CLIPES_MODE:
             if len(bbox_data['labels'].split()) < 2:
@@ -311,12 +311,16 @@ def prepare_output(input_data, mask_dir):
                     chain['chain_markups'].pop(i)
                 else:
                     i += 1
+            frame_counter = -1
+            chain['chain_markups'].sort(key="markup_frame")
             for frame in chain['chain_markups']:
+                frame_counter += 1
                 markup_count += 1
                 frame_num = str(frame['markup_frame'])
                 bbox_data = {"x": round(frame["markup_path"]["x"]), "y": round(frame["markup_path"]["y"]),
                              "width": round(frame["markup_path"]["width"]), "height": round(frame["markup_path"]["height"])}
-                if frame_process_condition(frame_num, bbox_data) and int(frame['markup_path']['class']) != 0:
+
+                if frame_process_condition(frame_counter, bbox_data) and int(frame['markup_path']['class']) != 0:
                     file_name = get_image_name(video_path, frame_num, chain_id)
                     poly = process_frame(file_name, mask_dir, frame['markup_path']['class'],
                                                                     N_CLS, color_mapping, DEMO_MODE,
@@ -449,6 +453,10 @@ for file in files_in_directory:
         cap = cv2.VideoCapture(f'{INPUT}/{video_path}')
         fps = cap.get(cv2.CAP_PROP_FPS)
 
+        def get_frame_num(frame):
+            if frame.get("markup_frame", None):
+                return frame["markup_frame"]
+            return round(float(frame['markup_time']) * float(fps))
         file_chains = item.get('file_chains', None)
         if not file_chains:
             # cs.post_error({"msg": "file_chains key has not been found",
@@ -461,7 +469,10 @@ for file in files_in_directory:
                                "details": f"File name {file}"})
                 logger.info(f"Chain name is not specified {file}")
                 continue
+            chain['chain_markups'].sort(key=get_frame_num)
+            frame_counter = -1
             for frame in chain['chain_markups']:
+                frame_counter += 1
                 frame_num = frame.get('markup_frame', None)
                 if frame_num is None:
                     m_time = frame.get('markup_time', None)
@@ -472,7 +483,7 @@ for file in files_in_directory:
                     frame['markup_frame'] = round(float(frame['markup_time']) * float(fps))
                     frame_num = frame['markup_frame']
                 bbox_data = {"x": frame["markup_path"]["x"], "y": frame["markup_path"]["y"], "width": frame["markup_path"]["width"], "height": frame["markup_path"]["height"]}
-                if frame_process_condition(frame_num, bbox_data):
+                if frame_process_condition(frame_counter, bbox_data):
                     if frame_num not in prepared_data.keys():
                         prepared_data[frame_num] = dict()
                     if chain_name not in prepared_data[frame_num].keys():
