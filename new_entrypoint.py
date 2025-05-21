@@ -293,6 +293,8 @@ def process_frame(file_name, mask_dir, cls, num_classes, color_mapping, colored_
     # logger.info(f'ploygons = {polygons}, cls = {cls}')
     return polygons[int(cls)]
 
+def get_frame_num(frame):
+    return frame["markup_frame"]
 
 def prepare_output(input_data, mask_dir):
     chain_count, markup_count = 0, 0
@@ -312,7 +314,7 @@ def prepare_output(input_data, mask_dir):
                 else:
                     i += 1
             frame_counter = -1
-            chain['chain_markups'].sort(key="markup_frame")
+            chain['chain_markups'].sort(key=get_frame_num)
             for frame in chain['chain_markups']:
                 frame_counter += 1
                 markup_count += 1
@@ -531,6 +533,13 @@ if CLIPES_MODE:
 
 start_time = time.time()
 processed = 0
+if not directories:
+    logger.info("There no data to process")
+    for params in empty_files:
+        save_empty_file(*params)
+    cs.post_progress({"stage": STAGE2, "progress": 100})
+    cs.post_end()
+    exit(0)
 for json_data, image_directory, mask_directory, vp, sam_dir, f, frame_amount in directories:
     if SAM2_MODE:
         logger.info("Sam v2 is used")
@@ -553,6 +562,7 @@ for json_data, image_directory, mask_directory, vp, sam_dir, f, frame_amount in 
 tart_time = time.time()
 count = 0
 cs.post_progress({"stage": STAGE3, "progress": 0})
+
 for json_data, image_directory, mask_directory, vp, sam_dir, f, frame_amount in directories:
     command = f'python SAM_WSSS/main.py --pseudo_path {mask_directory} --sam_path {sam_dir} --number_class 9'
     os.system(command)
